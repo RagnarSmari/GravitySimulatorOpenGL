@@ -1,7 +1,35 @@
 #include <GLFW/glfw3.h>
+#include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <vector>
+#include <thread>
+
+using namespace std;
+
+const GLdouble G = 6.67e-11;
+
+struct Coordinate {
+    GLdouble x;
+    GLdouble y;
+};
+
+static GLdouble getForce(GLdouble mass1,GLdouble mass2,GLdouble radius){
+    return (G * ((mass1 * mass2)/(radius*radius)));
+}
+
+static struct Coordinate forceVector(GLdouble gravForce, float angle ){
+    struct Coordinate force;
+    force.x = gravForce * cos(angle);
+    force.y = gravForce * sin(angle);
+    return force;
+}
+
+static float getAngle(GLdouble x1, GLdouble x2, GLdouble y1, GLdouble y2){
+    return atan2(y1 - y2, x1 - x2);
+}
+
 static void error_callback(int error, const char* description)
 {
     fputs(description, stderr);
@@ -31,6 +59,7 @@ void drawLine(GLfloat x, GLfloat y){
 
 void drawFilledCircle(GLfloat x, GLfloat y, GLfloat radius){
 	int i;
+    
 	int triangleAmount = 80; //# of triangles used to draw circle
 	
 	//GLfloat radius = 0.8f; //radius
@@ -48,16 +77,101 @@ void drawFilledCircle(GLfloat x, GLfloat y, GLfloat radius){
 }
 
 GLfloat get_polar_x(GLfloat dist, GLfloat angle) {
-    return dist * cos(angle) * 1.8f;
+    return dist * cos(angle);
 }
 
-GLfloat get_polar_y(GLfloat dist, GLfloat angle) {
-    return dist * sin(angle) * 0.5;
+GLfloat get_polar_y(GLfloat dist, GLfloat angle, float tilt) {
+    return dist * sin(angle) * (1 - tilt);
+}
+
+class Planet{
+public:
+    GLdouble mass;
+    GLdouble x;
+    GLdouble y;
+    GLdouble vel_x;
+    GLdouble vel_y;
+    Planet(GLdouble m1, GLdouble x1, GLdouble y1, GLdouble vel_x1, GLdouble vel_y1){
+        mass = m1;
+        x = x1;
+        y = y1;
+        vel_x = vel_x1;
+        vel_y = vel_y1;
+    }
+
+    GLdouble get_radius() {
+        return mass;
+    };
+
+    GLdouble get_distance(Planet other) {
+        return sqrt(pow((x - other.x), 2) + pow((y - other.y), 2));
+    };
+
+    void update() {
+        x = next_x;
+        y = next_y;
+        vel_x = next_vel_x;
+        vel_y = next_vel_y;
+    }
+};
+
+class Universe{
+public:
+    Universe(GLdouble mass){
+        // Creates the inner most planet 
+        central_mass = mass;
+    }
+    vector<Planet*> allPlanets;
+    GLdouble central_mass;
+    GLdouble get_central_radius() {
+        return central_mass;
+    };
+    void addPlanet(Planet *newPlanet){
+        // Adds a new planet to the universe
+        allPlanets.push_back(newPlanet);
+    };
+    void draw() {
+        drawFilledCircle(0.0f, 0.0f, central_mass);
+        for(auto planet : allPlanets) {
+            drawFilledCircle(planet->x, planet->y, planet->mass);
+        }
+    }
+    void update() {
+        //TODO implement ;^)
+        for(auto planet : allPlanets) {
+            // Set next frames values
+            float angle = getAngle(0.0f, planet->x, 0.0f, planet->y)
+        }
+        for(auto planet : allPlanets) {
+            // Update position and reset next frame values
+
+        }
+    }
+};
+
+//sun to earth = 149.11 million km
+//sun's mass = 1.989 × 10^30 kg
+//earth's mass = 5.972 × 10^24 kg
+
+
+
+void interactiveWindow(){
+    GLFWwindow* window;
+    glfwSetErrorCallback(error_callback);
+    if (!glfwInit())
+        exit(EXIT_FAILURE);
+    window = glfwCreateWindow(1080, 1080, "Control Station", NULL, NULL);
+    if (!window)
+    {
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
 }
 
 
 int main(void)
 {
+    GLclampd tilt = 0.0f;
     GLFWwindow* window;
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
@@ -70,26 +184,22 @@ int main(void)
     }
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
-    GLfloat dist = 0.5f;
-    GLfloat angle1 = M_PI / 2;
-    GLfloat angle2 = M_PI / 2;
-    GLfloat speed1 = 1.0f;
-    GLfloat speed2 = 1.7f; 
+    Universe *u = new Universe(0.1f);
+    Planet *earth = new Planet(0.05f, 0.5f, 0.5f, 1.0f, 0.0f);
+    u->addPlanet(earth);
     while (!glfwWindowShouldClose(window))
     {
+        glClear(GL_COLOR_BUFFER_BIT);
         float ratio;
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         ratio = width / (float) height;
+        u->draw();
+        u->update();
         glViewport(0, 0, width, height);
-        drawFilledCircle(get_polar_x(dist, angle1), get_polar_y(dist, angle1), 0.006f * (2.0f - get_polar_y(dist, angle1)));
-        drawFilledCircle(0.5f * get_polar_x(dist, angle2), 0.5f * get_polar_y(dist, angle2), 0.002f * (2.0f - get_polar_y(dist, angle2)));
-        drawFilledCircle(0.0f, 0.0f, 0.05f);
         glfwSwapBuffers(window);
         glfwPollEvents();
-        angle1 += 0.005f * speed1;
-        angle2 += 0.005f * speed2;
-        //dist -= 0.0001f;
+        glFlush();
     }
     glfwDestroyWindow(window);
     glfwTerminate();
