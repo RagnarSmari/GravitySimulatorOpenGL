@@ -6,10 +6,15 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-const GLdouble RATIO = 0.8f / (230.0 * 1000000000.0);
+#include <mutex>
+#include <SDL2/SDL.h>
+
+const GLdouble RATIO = 0.8f / (1198396441000.0);
 const GLdouble SECONDS_PER_FRAME = 2000;
+const GLclampd tilt = 1.0 - 0.8f;
 using namespace std;
 
+mutex draw_mutex;
 const GLdouble G = 6.67e-11;
 
 struct Coordinate {
@@ -59,15 +64,19 @@ void drawLine(GLfloat x, GLfloat y){
 }
 
 
-void drawFilledCircle(GLfloat x, GLfloat y, GLfloat radius){
+void drawFilledCircle(GLfloat x, GLfloat y, GLfloat radius, float red, float green, float blue){
+    // Critical section!! draw one at a time
+    draw_mutex.lock();
 	int i;
     
-	int triangleAmount = 80; //# of triangles used to draw circle
+	int triangleAmount = 12; //# of triangles used to draw circle
 	
 	//GLfloat radius = 0.8f; //radius
 	GLfloat twicePi = 2.0f * M_PI;
-	
 	glBegin(GL_TRIANGLE_FAN);
+        //glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_TEXTURE_2D);
+        glColor3f(red,green,blue);
 		glVertex2f(x, y); // center of circle
 		for(i = 0; i <= triangleAmount;i++) { 
 			glVertex2f(
@@ -76,6 +85,7 @@ void drawFilledCircle(GLfloat x, GLfloat y, GLfloat radius){
 			);
 		}
 	glEnd();
+    draw_mutex.unlock();
 }
 
 GLfloat get_polar_x(GLfloat dist, GLfloat angle) {
@@ -93,52 +103,64 @@ public:
     GLdouble y;
     GLdouble vel_x;
     GLdouble vel_y;
-    Planet(GLdouble m1, GLdouble x1, GLdouble y1, GLdouble vel_x1, GLdouble vel_y1){
+    GLdouble acc_x;
+    GLdouble acc_y;
+    float red;
+    float green;
+    float blue;
+    Planet(GLdouble m1, GLdouble x1, GLdouble y1, GLdouble vel_x1, GLdouble vel_y1, float red1 = 1.0, float green1 = 1.0, float blue1 = 1.0){
         mass = m1;
         x = x1;
         y = y1;
         vel_x = vel_x1;
         vel_y = vel_y1;
+        acc_x = 0.0;
+        acc_y = 0.0;
+        red = red1;
+        green = green1;
+        blue = blue1;
     }
 
-    GLdouble get_radius() {
-        return mass;
+    GLdouble get_size() {
+        return mass / RATIO;
     };
 
     GLdouble get_distance(GLdouble x2, GLdouble y2) {
         return sqrt(pow((x - x2), 2) + pow((y - y2), 2));
     };
 
-    void update(vector<Planet*> solarSystem) {
+    void update_acceleration(vector<Planet*> solarSystem) {
+        // Reset acceleration
+        this->acc_x = 0.0;
+        this->acc_y = 0.0;
+
         for(auto planet : solarSystem) {
             if (planet != this) {
-                //cout << "X: " << planet->x << ", Y:"<< planet->y << endl;
-                //cout << "X_vel: " << planet->vel_x << ", Y_vel:"<< planet->vel_y << endl;
+                
+                // Calculate force and acceleration relative to current planet
                 float angle = getAngle(planet->x, this->x, planet->y, this->y);
-                //cout << "Angle: " << angle*(180/M_PI) << endl;
-                //cout << "Angle: " << angle << endl;
                 GLdouble distance = this->get_distance(planet->x, planet->y);
                 GLdouble force = getForce(this->mass, planet->mass, distance);
-                //cout << "Force: " << force << endl;
                 struct Coordinate forceVec = forceVector(force, angle);
-                //cout << "Force x: " << forceVec.x << endl;
-                //cout << "Force y: " << forceVec.y << endl;
-                GLdouble acc_x = forceVec.x / this->mass;
-                GLdouble acc_y = forceVec.y / this->mass;
-
-                GLdouble increase_x = ((this->vel_x * SECONDS_PER_FRAME) + 0.5 * acc_x * pow(SECONDS_PER_FRAME,2));
-                GLdouble increase_y = ((this->vel_y * SECONDS_PER_FRAME) + 0.5 * acc_y * pow(SECONDS_PER_FRAME,2));
-                cout << "X increase: " << increase_x << endl;
-                cout << "Y increase: " << increase_y << endl;
                 
-                this->x += increase_x;
-                //planet->x += ((planet->vel_x * SECONDS_PER_FRAME));
-                this->y += increase_y;
-                //planet->y += ((planet->vel_y * SECONDS_PER_FRAME));
-                this->vel_x += (acc_x * SECONDS_PER_FRAME);
-                this->vel_y += (acc_y * SECONDS_PER_FRAME);
+                // Increment acceleration on x and y axis
+                this->acc_x += forceVec.x / this->mass;
+                this->acc_y += forceVec.y / this->mass;
+
+                
             }
         }
+    }
+
+    void update_position() {
+        GLdouble increase_x = ((this->vel_x * SECONDS_PER_FRAME) + 0.5 * this->acc_x * pow(SECONDS_PER_FRAME,2));
+        GLdouble increase_y = ((this->vel_y * SECONDS_PER_FRAME) + 0.5 * this->acc_y * pow(SECONDS_PER_FRAME,2));
+        
+        // Update coordinate and velocity
+        this->x += increase_x;
+        this->y += increase_y;
+        this->vel_x += (this->acc_x * SECONDS_PER_FRAME);
+        this->vel_y += (this->acc_y * SECONDS_PER_FRAME);
     }
 };
 
@@ -160,57 +182,40 @@ public:
         allPlanets.push_back(newPlanet);
     };
     void draw() {
-        drawFilledCircle(0.0f, 0.0f, 0.065f);
+        //drawFilledCircle(0.0f, 0.0f, 0.065);
         for(auto planet : allPlanets) {
-            //drawFilledCircle(planet->x * RATIO, planet->y * RATIO, planet->mass / (1.9885 * pow(10, 30) / 332950) * 0.025);
-            drawFilledCircle(planet->x * RATIO, planet->y * RATIO, 0.01);
+            //drawFilledCircle(planet->x * RATIO, planet->y * RATIO, (sqrt(log10(planet->mass)))-4.700*0.01);
+            //glClear(GL_COLOR_BUFFER_BIT);
+            //glColor3f(planet->red,planet->green,planet->blue);
+            GLdouble sixroot = pow(planet->mass, 1.0/8.0);
+            GLdouble print_radius = max(sixroot * 0.0000035, 0.0001);
+            drawFilledCircle(planet->x * RATIO, planet->y * RATIO * tilt, print_radius, planet->red, planet->green, planet->blue);
+            //drawFilledCircle(planet->x * RATIO, planet->y * RATIO, 0.01, planet->red,planet->green,planet->blue);
         }
     }
     void update() {
-        //TODO implement ;^)
-        // for(auto planet : allPlanets) {
-            
-        //     // cout << "X: " << planet->x << ", Y:"<< planet->y << endl;
-        //     // //cout << "X_vel: " << planet->vel_x << ", Y_vel:"<< planet->vel_y << endl;
-        //     float angle = getAngle(0.0f, planet->x, 0.0f, planet->y);
-        //     // cout << "Angle: " << angle*(180/M_PI) << endl;
-        //     // //cout << "Angle: " << angle << endl;
-        //     GLdouble distance = planet->get_distance(0.0f, 0.0f);
-        //     GLdouble force = getForce(central_mass, planet->mass, distance);
-        //     // //cout << "Force: " << force << endl;
-        //     struct Coordinate forceVec = forceVector(force, angle);
-        //     // //cout << "Force x: " << forceVec.x << endl;
-        //     // //cout << "Force y: " << forceVec.y << endl;
-        //     GLdouble acc_x = forceVec.x / planet->mass;
-        //     GLdouble acc_y = forceVec.y / planet->mass;
-
-        //     GLdouble increase_x = ((planet->vel_x * SECONDS_PER_FRAME) + 0.5 * acc_x * pow(SECONDS_PER_FRAME,2));
-        //     GLdouble increase_y = ((planet->vel_y * SECONDS_PER_FRAME) + 0.5 * acc_y * pow(SECONDS_PER_FRAME,2));
-        //     // cout << "X increase: " << increase_x << endl;
-        //     // cout << "Y increase: " << increase_y << endl;
-            
-        //     planet->x += increase_x;
-        //     // planet->x += ((planet->vel_x * SECONDS_PER_FRAME));
-        //     planet->y += increase_y;
-        //     // planet->y += ((planet->vel_y * SECONDS_PER_FRAME));
-        //     planet->vel_x += (acc_x * SECONDS_PER_FRAME);
-        //     planet->vel_y += (acc_y * SECONDS_PER_FRAME);
-        // }
         for(auto planet : allPlanets) {
             // Update position and reset next frame values
-            planet->update(allPlanets);
+            planet->update_acceleration(allPlanets);
         }
-
+        for(auto planet : allPlanets) {
+            planet->update_position();
+        }
     }
     // https://stackoverflow.com/questions/54551371/creating-thread-inside-a-for-loop-c
     void threaded_update(){
-        vector<std::thread*> ThreadVector;
-
-        for(auto planet : allPlanets){
-            ThreadVector.emplace_back([&]{planet->update(allPlanets);}); // Pass by reference here, make sure the object lifetime is correct
+        thread threads[this->allPlanets.size()];
+        int i = 0;
+        for(auto planet : this->allPlanets){
+            vector<Planet*> solar_system = this->allPlanets;
+            threads[i] = thread(&Planet::update_acceleration, planet, solar_system);
+            i++;
         }
-        for(auto t : ThreadVector){
-            t->join();
+        for(int i=0; i<this->allPlanets.size(); i++){
+            threads[i].join();
+        }
+        for(auto planet : allPlanets) {
+            planet->update_position();
         }
     }
 };
@@ -274,10 +279,9 @@ void interactiveWindow(){
 
 
 
-int main(void)
+int main(int argc, char** argv)
 {
-    GLclampd tilt = 0.0f;
-    
+    glEnable(GL_COLOR_MATERIAL);
     GLFWwindow* window;
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
@@ -302,81 +306,126 @@ int main(void)
     GLdouble moon_x = 0.0;
     GLdouble moon_y = 149.11 * 1000000000 - 340000000;
     GLdouble moon_vel_y = 0.0;
-    GLdouble moon_vel_x = 29870.0 - 2*1022.0;
+    GLdouble moon_vel_x = 29870.0 +1022.0;
 
     //halastjörnu braut:     
-    //GLdouble earth_vel_y = 5000.0;
-    //GLdouble earth_vel_x = 21000.0;//sqrt((G * sun_mass) / earth_x);
-    //GLdouble earth_x = 0.0;
-    //GLdouble earth_y = 149.11 * 1000000000;
+    // GLdouble earth_vel_y = 5000.0;
+    // GLdouble earth_vel_x = 21000.0;//sqrt((G * sun_mass) / earth_x);
+    // GLdouble earth_y = 0.0;
+    // GLdouble earth_x = 149.11 * 1000000000;
 
     GLdouble mars_mass =  6.39 * pow(10, 23);
-    GLdouble mars_x = 0.0;
-    GLdouble mars_y = 230.0 * 1000000000.0;
-    GLdouble mars_vel_y = 0.0;
-    GLdouble mars_vel_x = 24072.0;
+    GLdouble mars_y = 0.0;
+    GLdouble mars_x = 230.0 * 1000000000.0;
+    GLdouble mars_vel_x = 0.0;
+    GLdouble mars_vel_y = 24072.0;
     //GLdouble mars_vel_x = 0.0;
 
     GLdouble venus_mass =  4.867 * pow(10, 24);
     GLdouble venus_x = 0.0;
-    GLdouble venus_y = 108.41 * 1000000000.0;
+    GLdouble venus_y = -108.41 * 1000000000.0;
     GLdouble venus_vel_y = 0.0;
     GLdouble venus_vel_x = 35021.561;
     //GLdouble venus_vel_x = 0.0;
 
     GLdouble mercury_mass =3.285 * pow(10, 23);;
-    GLdouble mercury_x = 0.0;
-    GLdouble mercury_y = 54.385 * 1000000000.0;
-    GLdouble mercury_vel_y = 0.0;
-    GLdouble mercury_vel_x = 47362.5;
+    GLdouble mercury_y = 0.0;
+    GLdouble mercury_x = 54.385 * 1000000000.0;
+    GLdouble mercury_vel_x = 0.0;
+    GLdouble mercury_vel_y = 47362.5;
     //GLdouble mercury_vel_x = 0.0;
 
 //jupiter
 //sun to jupiter = 744.7 million km
 //jupiter's mass = 1.898 × 10^27 kg
 //jupiter's speed = 13069
-    GLdouble jupiter_mass =3.285 * pow(10, 23);;
+    GLdouble jupiter_mass = 1.898 * pow(10, 27);;
     GLdouble jupiter_x = 0.0;
-    GLdouble jupiter_y = 54.385 * 1000000000.0;
+    GLdouble jupiter_y = 778000000000.0;
     GLdouble jupiter_vel_y = 0.0;
-    GLdouble jupiter_vel_x = 47362.5;
+    GLdouble jupiter_vel_x = 13069.0;
 //saturn 
 //1.4788 billion km
 //mass = 5.683 × 10^26 kg
 //speed = 9672
-
+    GLdouble saturn_mass =5.683 * pow(10, 26);;
+    GLdouble saturn_x = 0.0;
+    GLdouble saturn_y = 1.4788 * 1000000000000.0;
+    GLdouble saturn_vel_y = 0.0;
+    GLdouble saturn_vel_x = 9672.0;
 //uranus
 //2.9479 billion km
 //mass = 8.681 × 10^25 kg
 //6800
-
+    GLdouble uranus_mass =8.681 * pow(10, 25);;
+    GLdouble uranus_x = 0.0;
+    GLdouble uranus_y = 2.9479 * 1000000000000.0;
+    GLdouble uranus_vel_y = 0.0;
+    GLdouble uranus_vel_x = 6800.0;
 //neptune
 //4,498,396,441km
 //mass = 1.024 × 10^26 kg
 //5435
+    GLdouble neptune_mass =1.024 * pow(10, 26);;
+    GLdouble neptune_x = 0.0;
+    GLdouble neptune_y = 4498396441000.0;
+    GLdouble neptune_vel_y = 0.0;
+    GLdouble neptune_vel_x = 5435.0;
+
+
+
+
 
     Universe *u = new Universe(sun_mass);
-    Planet *sun = new Planet(sun_mass * 4, 0.0, 0.0, 0.0, 0.0);
-    Planet *earth = new Planet(earth_mass, earth_x, earth_y, earth_vel_x, earth_vel_y);
-    Planet *mars = new Planet(mars_mass, mars_x, mars_y, mars_vel_x, mars_vel_y);
-    Planet *venus = new Planet(venus_mass, venus_x, venus_y, venus_vel_x, venus_vel_y);
-    Planet *mercury = new Planet(mercury_mass,mercury_x,mercury_y,mercury_vel_x,mercury_vel_y);
-    Planet *moon = new Planet(moon_mass, moon_x, moon_y, moon_vel_x, moon_vel_y);
+    Planet *sun = new Planet(sun_mass, 0.0, 0.0, 0.0, 0.0, 1.0f, 1.0f, 0.0f);
+    Planet *earth = new Planet(earth_mass, earth_x, earth_y, earth_vel_x, earth_vel_y, 0.0f, 1.0f, 0.3f);
+    Planet *mars = new Planet(mars_mass, mars_x, mars_y, mars_vel_x, mars_vel_y, 1.0f, 0.0f, 0.0f);
+    Planet *venus = new Planet(venus_mass, venus_x, venus_y, venus_vel_x, venus_vel_y, 0.0f, 1.0f, 1.0f);
+    Planet *mercury = new Planet(mercury_mass,mercury_x,mercury_y,mercury_vel_x,mercury_vel_y, 1.0f,1.0f,1.0f);
+    Planet *moon = new Planet(moon_mass, moon_x, moon_y, moon_vel_x, moon_vel_y, 0.8f,0.8f,0.8f);
+    Planet *jupiter = new Planet(jupiter_mass,jupiter_x,jupiter_y,jupiter_vel_x,jupiter_vel_y, 1.0f,0.0f,0.0f);
+    Planet *saturn  = new Planet(saturn_mass, saturn_x, saturn_y, saturn_vel_x, saturn_vel_y, 1.0f,0.8f,0.1f);
+    Planet *uranus = new Planet(uranus_mass, uranus_x, uranus_y, uranus_vel_x, uranus_vel_y, 0.0f, 0.3f,1.0f);
+    Planet *neptune = new Planet(neptune_mass, neptune_x, neptune_y, neptune_vel_x, neptune_vel_y, 0.0f,0.1f,1.0f);
     u->addPlanet(sun);
     u->addPlanet(earth);
     u->addPlanet(mars);
     u->addPlanet(venus);
     u->addPlanet(mercury);
     u->addPlanet(moon);
+    u->addPlanet(jupiter);
+    u->addPlanet(saturn);
+    u->addPlanet(uranus);
+    u->addPlanet(neptune);
+    if(argc > 2){
+        cout << "made planet x!" << endl;
+        GLdouble planet_X_mass;
+        GLdouble planet_X_x;
+        GLdouble planet_X_y;
+        GLdouble planet_X_vel_y;
+        GLdouble planet_X_vel_x;
+        float planet_X_red;
+        float planet_X_blue;
+        float planet_X_green;
+        planet_X_mass = (double)atof(argv[1]);
+        planet_X_x = (double)atof(argv[2]);
+        planet_X_y = (double)atof(argv[3]);
+        planet_X_vel_x = (double)atof(argv[4]);
+        planet_X_vel_y = (double)atof(argv[5]);
+        planet_X_red = atof(argv[6]);
+        planet_X_blue = atof(argv[7]);
+        planet_X_green = atof(argv[8]);
+        Planet *planet_X = new Planet(planet_X_mass, planet_X_x, planet_X_y, planet_X_vel_x, planet_X_vel_y, planet_X_red, planet_X_blue, planet_X_green);
+        u->addPlanet(planet_X);
+
+    }
     while (!glfwWindowShouldClose(window))
     {
-        glClear(GL_COLOR_BUFFER_BIT);
-        float ratio;
+        //glClear(GL_COLOR_BUFFER_BIT);
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
-        ratio = width / (float) height;
         u->draw();
-        u->update();
+        u->threaded_update();
         glViewport(0, 0, width, height);
         glfwSwapBuffers(window);
         glfwPollEvents();
