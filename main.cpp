@@ -10,7 +10,7 @@
 #include <random>
 #include <string.h>
 
-GLdouble RATIO = 0.8f / (239839644100.0); // Defined as 0.8 * longest distance to get a view of everythi
+GLdouble RATIO = 0.8f / (239839644100.0); // Starts of seeing the 3-4 innermost planets
 GLdouble SECONDS_PER_FRAME = 8000.0; // Speed at which the simulation takes place
 const GLclampd tilt = 1.0 - 0.667f; // Tilt
 bool tilted = false;

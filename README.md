@@ -1,5 +1,9 @@
 # GravitySimulatorOpenGL
 
+Youtube Video explaining:
+https://youtu.be/C7f5ABi6VSU
+
+
 Prerequisites:
 Have OpenGL installed on computer
 Run program on a Debian Linux distro, preferrably Ubuntu or Pop Os
