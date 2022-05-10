@@ -54,7 +54,7 @@ the arguments are in the follwing order:<br>
 (6) Decrease speed of simulation<br>
 (s)table: Add a randomly generated celestial body in a (hopefully) stable orbit<br>
 (r)ogue: Add a randomly generated rogue planet, who knows what will happen<br>
-
+<br>
 It can crash if you add too many planets, but we stil recommend doing it.<br>
 It gets a bit funky if you zoom, increase size or toggle angle with trail on.<br>
 It gets a bit weird if you increase the speed too much<br>
