@@ -10,9 +10,9 @@
 #include <random>
 #include <string.h>
 
-GLdouble RATIO = 0.8f / (239839644100.0); // Starts of seeing the 3-4 innermost planets
+GLdouble RATIO = 0.8f / (239839644100.0); // Starts off seeing the 3-4 innermost planets
 GLdouble SECONDS_PER_FRAME = 8000.0; // Speed at which the simulation takes place
-const GLclampd tilt = 1.0 - 0.667f; // Tilt
+const GLclampd tilt = 1.0 - 0.667f; // Constant tilt, can be toggled on/off
 bool tilted = false;
 bool trail = false;
 GLdouble SIZE = 1.0;
@@ -31,10 +31,12 @@ struct Coordinate {
     GLdouble y;
 };
 
+// Returns force between two bodies based on mass and distance
 static GLdouble getForce(GLdouble mass1,GLdouble mass2,GLdouble radius){
     return (G * ((mass1 * mass2)/(radius*radius)));
 }
 
+// Calculates 2 dimensional force vector (coordinate) based on a force value and angle
 static struct Coordinate forceVector(GLdouble gravForce, GLdouble angle ){
     struct Coordinate force;
     force.x = gravForce * cos(angle);
@@ -42,6 +44,7 @@ static struct Coordinate forceVector(GLdouble gravForce, GLdouble angle ){
     return force;
 }
 
+// Returns angle between two points in space
 static double getAngle(GLdouble x1, GLdouble x2, GLdouble y1, GLdouble y2){
     return atan2(y1 - y2, x1 - x2);
 }
@@ -50,6 +53,8 @@ static void error_callback(int error, const char* description)
 {
     fputs(description, stderr);
 }
+
+// Keyboard interface
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
