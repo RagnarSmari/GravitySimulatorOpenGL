@@ -1,6 +1,6 @@
 # GravitySimulatorOpenGL
 
-Youtube Video explaining:
+Youtube Video demonstration:
 https://youtu.be/C7f5ABi6VSU
 
 
