@@ -4,23 +4,23 @@ Youtube Video explaining:
 https://youtu.be/C7f5ABi6VSU
 
 
-<h2>Prerequisites:</h2><br>
+<h2>Prerequisites:</h2>
 Have OpenGL installed on computer
 Run program on a Debian Linux distro, preferrably Ubuntu or Pop Os
 
-<h2>Compiled as Library:</h2><br>
+<h2>Compiled as Library:</h2>
 The project has been put into a library but is currently not usable.
 (Currently in development, we finished our funding)
 
-<h2>HOW TO COMPILE:</h2><br>
+<h2>HOW TO COMPILE:</h2>
 make<br>
 or<br>
 g++ -std=c++11 main.cpp -lglfw3 -lGLU -lGL -lX11 -pthread
 
-<h2>HOW TO RUN:</h2><br>
+<h2>HOW TO RUN:</h2>
 ./a.out
 
-<h2>HOW TO ADD A PLANET:</h2><br>
+<h2>HOW TO ADD A PLANET:</h2>
 command line arguments
 add 8 arguments when calling the executable.
 the arguments are in the follwing order:<br>
@@ -33,17 +33,17 @@ the arguments are in the follwing order:<br>
     -color value blue (float from 1.0 = max to 0.0 = min)<br>
     -color value green (float from 1.0 = max to 0.0 = min)<br>
 
-<h2>Example planets to add:<br>
-<h3>rouge planet <br>
+<h2>Example planets to add:</h2>
+<h3>rouge planet </h3>
 ./a.out 639000000000000000000000.0 230000000000.0 230000000000.0 0.0 24072.0 1.0 1.0 1.0<br>
-<h3>black hole<br>
+<h3>black hole</h3>
 ./a.out 63900000000000000000000000000000.0 230000000000.0 230000000000.0 0.0 24072.0 0.0 0.0 0.0<br>
-<h3>haley's comet<br>
+<h3>haley's comet</h3>
 ./a.out 5972368223000000000000000.0 -149110000000.0 0.0 5000.0 21000.0 0.5 0.5 0.5<br>
 
 
 
-<h2>INTERFACE:</h2><br>
+<h2>INTERFACE:</h2>
 (a)ngle: Toggle angle<br>
 (t)rail: Toggle trail<br>
 (1) Zoom in<br>
